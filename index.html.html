@@ -1,0 +1,1530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Periodic Table Atom Animation</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #030407;
+            color: #f8fafc;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            overflow: hidden;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Subtle pulsing animation for active indicator */
+        @keyframes subtlePulse {
+            0%, 100% { opacity: 0.85; }
+            50% { opacity: 0.35; }
+        }
+        .pulse-dot {
+            animation: subtlePulse 2s infinite ease-in-out;
+        }
+        /* Gentle floating animation for cute science screen pets */
+        @keyframes petFloat {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-6px) rotate(1.5deg); }
+        }
+        .pet-float {
+            animation: petFloat 4.2s infinite ease-in-out;
+        }
+        @keyframes petCelebrate {
+            0% { transform: scale(1) translateY(0); }
+            35% { transform: scale(1.16) translateY(-12px) rotate(-5deg); }
+            70% { transform: scale(1.08) translateY(-6px) rotate(5deg); }
+            100% { transform: scale(1) translateY(0) rotate(0deg); }
+        }
+        .pet-celebrate {
+            animation: petCelebrate 0.85s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        /* Custom sleek scrollbars for drawers */
+        .custom-scroll::-webkit-scrollbar {
+            width: 5px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.35);
+            border-radius: 9999px;
+        }
+    </style>
+</head>
+<body class="relative bg-[#030407] text-slate-100 antialiased selection:bg-cyan-500/30">
+
+    <!-- Main Fullscreen Canvas -->
+    <canvas id="atomCanvas"></canvas>
+
+    <!-- Minimalist Top-Left Element & Session HUD -->
+    <div id="topHud" class="fixed top-5 left-5 sm:top-7 sm:left-7 z-10 pointer-events-none transition-opacity duration-700 opacity-75">
+        <div class="flex items-center gap-2.5 text-xs tracking-widest uppercase text-slate-400/90 font-medium">
+            <span id="statusDot" class="w-1.5 h-1.5 rounded-full bg-cyan-400 pulse-dot"></span>
+            <span id="categoryLabel">Reactive Nonmetal</span>
+        </div>
+        <div class="mt-1 flex items-baseline gap-2 text-[11px] mono text-slate-500">
+            <span>SHELLS:</span>
+            <span id="shellsDisplay" class="text-slate-300 font-medium">1</span>
+        </div>
+        <div class="mt-2.5 flex items-center gap-3 text-[11px] mono text-slate-400/90">
+            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/50 border border-slate-800/60 backdrop-blur-sm">
+                <span class="text-cyan-400">✦</span>
+                <span id="hudQuanta" class="text-slate-200 font-medium">0</span>
+                <span class="text-slate-500">Quanta</span>
+            </div>
+            <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-900/50 border border-slate-800/60 backdrop-blur-sm">
+                <span class="text-emerald-400">◷</span>
+                <span id="hudMinutes" class="text-slate-200 font-medium">0</span>
+                <span class="text-slate-500">min</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top-Right Action Pills (Shop & Edit/Recovery Mode) -->
+    <div class="fixed top-5 right-5 sm:top-7 sm:right-7 z-20 flex items-center gap-2 opacity-65 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-500">
+        <button id="openShopBtn" class="px-3.5 py-2 rounded-xl bg-slate-900/60 hover:bg-slate-800/90 border border-slate-800/70 backdrop-blur-md text-xs font-medium text-slate-200 flex items-center gap-2 shadow-lg transition active:scale-95">
+            <span class="text-cyan-400">✦</span>
+            <span>Lab Shop</span>
+        </button>
+        <button id="openEditBtn" title="Student Edit & Progress Recovery Mode" class="p-2 rounded-xl bg-slate-900/60 hover:bg-slate-800/90 border border-slate-800/70 backdrop-blur-md text-slate-400 hover:text-slate-100 shadow-lg transition active:scale-95">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+        </button>
+    </div>
+
+    <!-- Cute Science Screen Pet Stage (Bottom-Left) -->
+    <div id="petContainer" class="fixed bottom-20 sm:bottom-7 left-5 sm:left-7 z-10 hidden flex-col items-center cursor-pointer group" title="Click your study companion!">
+        <div id="petSpeechBubble" class="mb-2 px-3 py-1 rounded-full bg-slate-900/85 border border-slate-700/70 text-[11px] text-cyan-200 backdrop-blur-md opacity-0 translate-y-1 transition-all duration-300 pointer-events-none whitespace-nowrap shadow-lg">
+            Stay focused! ⚛️
+        </div>
+        <div id="petSprite" class="w-16 h-16 sm:w-20 sm:h-20 pet-float flex items-center justify-center drop-shadow-[0_0_16px_rgba(56,189,248,0.28)] transition-transform">
+            <!-- Dynamic SVG Pet injected here -->
+        </div>
+        <span id="petNameTag" class="mt-1 text-[10px] tracking-wider uppercase mono text-slate-500 group-hover:text-slate-300 transition">Pip</span>
+    </div>
+
+    <!-- Subtle Floating Notification Toast -->
+    <div id="toastBanner" class="fixed top-20 left-1/2 -translate-x-1/2 z-30 px-4 py-2 rounded-full bg-slate-900/90 border border-cyan-500/30 text-xs text-cyan-200 backdrop-blur-md shadow-2xl opacity-0 pointer-events-none transition-all duration-500">
+        Element Discovered! +15 Quanta
+    </div>
+
+    <!-- Unobtrusive Bottom-Right Study Controls -->
+    <div id="controlsDock" class="fixed bottom-5 right-5 sm:bottom-7 sm:right-7 z-20 flex flex-wrap items-center justify-end gap-1.5 sm:gap-2 p-1.5 rounded-2xl bg-slate-900/50 backdrop-blur-md border border-slate-800/70 opacity-45 hover:opacity-100 focus-within:opacity-100 transition-all duration-500 shadow-2xl">
+        
+        <!-- Ambient Audio Soundscape Toggle -->
+        <button id="audioToggleBtn" title="Toggle Meditative Ambient Drone" aria-label="Toggle Ambient Sound" class="p-2.5 sm:p-2 rounded-xl text-slate-400 hover:text-cyan-300 hover:bg-slate-800/80 active:scale-95 transition">
+            <!-- Muted Icon (Default) -->
+            <svg id="audioMutedIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+            <!-- Playing Icon -->
+            <svg id="audioOnIcon" class="w-4 h-4 hidden text-cyan-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+            </svg>
+        </button>
+
+        <div class="w-px h-4 bg-slate-800 mx-0.5"></div>
+
+        <!-- Previous Element -->
+        <button id="prevBtn" title="Previous Element (Left Arrow)" aria-label="Previous Element" class="p-2.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 active:scale-95 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+        </button>
+
+        <!-- Play / Pause Focus Timer -->
+        <button id="playPauseBtn" title="Pause / Resume Focus Timer (Space)" aria-label="Pause or Resume" class="p-2.5 sm:p-2 rounded-xl text-slate-200 bg-slate-800/60 hover:bg-slate-700/80 active:scale-95 transition">
+            <svg id="pauseIcon" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 9v6m4-6v6" />
+            </svg>
+            <svg id="playIcon" class="w-4 h-4 hidden text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            </svg>
+        </button>
+
+        <!-- Next Element -->
+        <button id="nextBtn" title="Next Element (Right Arrow)" aria-label="Next Element" class="p-2.5 sm:p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/80 active:scale-95 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+        </button>
+
+        <!-- Reset Current Session Back to Hydrogen (1) -->
+        <button id="resetSessionBtn" title="Reset Atom Session to Hydrogen (H)" aria-label="Reset Session" class="p-2.5 sm:p-2 rounded-xl text-slate-400 hover:text-rose-300 hover:bg-slate-800/80 active:scale-95 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+        </button>
+
+        <div class="w-px h-4 bg-slate-800 mx-0.5"></div>
+
+        <!-- Speed Toggle (1m real-time vs 2s fast preview) -->
+        <button id="speedBtn" title="Toggle Interval Speed (60s Study Mode vs 2s Demo Preview)" class="px-2.5 py-2 sm:py-1.5 rounded-xl text-[11px] mono font-medium text-slate-300 hover:text-cyan-300 hover:bg-slate-800/80 active:scale-95 transition">
+            <span id="speedLabel">1m / elem</span>
+        </button>
+
+        <!-- Countdown Readout -->
+        <div class="px-2.5 py-1.5 rounded-xl bg-slate-950/70 border border-slate-800/60 text-[11px] mono text-slate-300 min-w-[54px] text-center" title="Time until next element">
+            <span id="timerText">01:00</span>
+        </div>
+    </div>
+
+    <!-- ===================================================================== -->
+    <!-- SLIDE-OVER LAB SHOP DRAWER                                            -->
+    <!-- ===================================================================== -->
+    <div id="shopBackdrop" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300"></div>
+    <aside id="shopDrawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-md bg-[#080b12]/95 border-l border-slate-800/80 backdrop-blur-xl shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+        <!-- Shop Header -->
+        <div class="p-5 sm:p-6 border-b border-slate-800/80 flex items-center justify-between">
+            <div>
+                <h2 class="text-base font-semibold tracking-tight text-white flex items-center gap-2">
+                    <span class="text-cyan-400">✦</span> Quantum Lab Shop
+                </h2>
+                <p class="text-xs text-slate-400 mt-0.5">Earn 10 Quanta every study minute + element bonuses</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="px-3 py-1.5 rounded-xl bg-cyan-950/50 border border-cyan-500/30 text-xs mono font-semibold text-cyan-300">
+                    ✦ <span id="shopQuantaBalance">0</span>
+                </div>
+                <button id="closeShopBtn" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Shop Scrollable Content -->
+        <div class="flex-1 overflow-y-auto custom-scroll p-5 sm:p-6 space-y-6">
+            <!-- Section 1: Cute Science Screen Pets -->
+            <div>
+                <h3 class="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Science Screen Pets (Equip 1)</h3>
+                <div id="shopPetsList" class="grid grid-cols-1 gap-3"></div>
+            </div>
+
+            <!-- Section 2: Meditative & Visual Upgrades -->
+            <div>
+                <h3 class="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Visual & Atmospheric Upgrades</h3>
+                <div id="shopUpgradesList" class="grid grid-cols-1 gap-3"></div>
+            </div>
+
+            <!-- Section 3: Chromatic Resonance Themes -->
+            <div>
+                <h3 class="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">Chromatic Resonance Palettes</h3>
+                <div id="shopThemesList" class="grid grid-cols-1 gap-3"></div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ===================================================================== -->
+    <!-- STUDENT EDIT & RECOVERY MODE MODAL                                    -->
+    <!-- ===================================================================== -->
+    <div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+        <div class="w-full max-w-lg rounded-2xl bg-[#0a0e17] border border-slate-800 shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-slate-800/80 flex items-center justify-between">
+                <div>
+                    <h2 class="text-base font-semibold text-white">Student Edit & Progress Recovery</h2>
+                    <p class="text-xs text-slate-400 mt-0.5">Restore lost study time, Quanta, or unlocks from accidental closure</p>
+                </div>
+                <button id="closeEditBtn" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-5 space-y-4 max-h-[75vh] overflow-y-auto custom-scroll">
+                <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200/90 leading-relaxed">
+                    <strong>Progress Recovery Protection:</strong> Your progress saves automatically in this browser. If you switched devices or accidentally closed a session, adjust your values below to restore your exact study state.
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Edit Total Minutes Studied -->
+                    <div>
+                        <label for="editMinutesInput" class="block text-xs font-medium text-slate-300 mb-1.5">Total Study Minutes Spent</label>
+                        <input id="editMinutesInput" type="number" min="0" max="999999" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sm mono text-white focus:outline-none focus:border-cyan-500">
+                    </div>
+
+                    <!-- Edit Quanta Currency -->
+                    <div>
+                        <label for="editQuantaInput" class="block text-xs font-medium text-slate-300 mb-1.5">Quanta Currency Balance (✦)</label>
+                        <input id="editQuantaInput" type="number" min="0" max="9999999" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sm mono text-white focus:outline-none focus:border-cyan-500">
+                    </div>
+                </div>
+
+                <!-- Edit Current Atomic Element -->
+                <div>
+                    <label for="editElementSelect" class="block text-xs font-medium text-slate-300 mb-1.5">Active Periodic Table Element (1–118)</label>
+                    <select id="editElementSelect" class="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-sm text-white focus:outline-none focus:border-cyan-500"></select>
+                    <label class="mt-2 flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
+                        <input id="syncElementWithMinutes" type="checkbox" class="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0">
+                        <span>Auto-match element to Total Study Minutes (1 min = H, 2 min = He...)</span>
+                    </label>
+                </div>
+
+                <!-- Quick Unlock / Lock Toggle for Recovery -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-2">Quick Item Unlock Recovery</label>
+                    <div id="editUnlocksGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-slate-950/60 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2">
+                <button id="factoryResetBtn" class="px-3.5 py-2 rounded-xl text-xs font-medium text-rose-400 hover:bg-rose-950/50 border border-rose-900/50 transition">
+                    Reset All Data
+                </button>
+                <div class="flex items-center gap-2">
+                    <button id="cancelEditBtn" class="px-4 py-2 rounded-xl text-xs font-medium text-slate-300 hover:bg-slate-800 transition">
+                        Cancel
+                    </button>
+                    <button id="saveEditBtn" class="px-4 py-2 rounded-xl text-xs font-semibold bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20 transition">
+                        Apply & Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Complete dataset of all 118 Chemical Elements with accurate electron shell configurations.
+         * Format: [AtomicNumber, Symbol, Name, CategoryKey, [Shells...]]
+         */
+        const ELEMENTS = [
+            [1, "H", "Hydrogen", "nonmetal", [1]],
+            [2, "He", "Helium", "noble", [2]],
+            [3, "Li", "Lithium", "alkali", [2, 1]],
+            [4, "Be", "Beryllium", "alkaline", [2, 2]],
+            [5, "B", "Boron", "metalloid", [2, 3]],
+            [6, "C", "Carbon", "nonmetal", [2, 4]],
+            [7, "N", "Nitrogen", "nonmetal", [2, 5]],
+            [8, "O", "Oxygen", "nonmetal", [2, 6]],
+            [9, "F", "Fluorine", "nonmetal", [2, 7]],
+            [10, "Ne", "Neon", "noble", [2, 8]],
+            [11, "Na", "Sodium", "alkali", [2, 8, 1]],
+            [12, "Mg", "Magnesium", "alkaline", [2, 8, 2]],
+            [13, "Al", "Aluminium", "post-transition", [2, 8, 3]],
+            [14, "Si", "Silicon", "metalloid", [2, 8, 4]],
+            [15, "P", "Phosphorus", "nonmetal", [2, 8, 5]],
+            [16, "S", "Sulfur", "nonmetal", [2, 8, 6]],
+            [17, "Cl", "Chlorine", "nonmetal", [2, 8, 7]],
+            [18, "Ar", "Argon", "noble", [2, 8, 8]],
+            [19, "K", "Potassium", "alkali", [2, 8, 8, 1]],
+            [20, "Ca", "Calcium", "alkaline", [2, 8, 8, 2]],
+            [21, "Sc", "Scandium", "transition", [2, 8, 9, 2]],
+            [22, "Ti", "Titanium", "transition", [2, 8, 10, 2]],
+            [23, "V", "Vanadium", "transition", [2, 8, 11, 2]],
+            [24, "Cr", "Chromium", "transition", [2, 8, 13, 1]],
+            [25, "Mn", "Manganese", "transition", [2, 8, 13, 2]],
+            [26, "Fe", "Iron", "transition", [2, 8, 14, 2]],
+            [27, "Co", "Cobalt", "transition", [2, 8, 15, 2]],
+            [28, "Ni", "Nickel", "transition", [2, 8, 16, 2]],
+            [29, "Cu", "Copper", "transition", [2, 8, 18, 1]],
+            [30, "Zn", "Zinc", "transition", [2, 8, 18, 2]],
+            [31, "Ga", "Gallium", "post-transition", [2, 8, 18, 3]],
+            [32, "Ge", "Germanium", "metalloid", [2, 8, 18, 4]],
+            [33, "As", "Arsenic", "metalloid", [2, 8, 18, 5]],
+            [34, "Se", "Selenium", "nonmetal", [2, 8, 18, 6]],
+            [35, "Br", "Bromine", "nonmetal", [2, 8, 18, 7]],
+            [36, "Kr", "Krypton", "noble", [2, 8, 18, 8]],
+            [37, "Rb", "Rubidium", "alkali", [2, 8, 18, 8, 1]],
+            [38, "Sr", "Strontium", "alkaline", [2, 8, 18, 8, 2]],
+            [39, "Y", "Yttrium", "transition", [2, 8, 18, 9, 2]],
+            [40, "Zr", "Zirconium", "transition", [2, 8, 18, 10, 2]],
+            [41, "Nb", "Niobium", "transition", [2, 8, 18, 12, 1]],
+            [42, "Mo", "Molybdenum", "transition", [2, 8, 18, 13, 1]],
+            [43, "Tc", "Technetium", "transition", [2, 8, 18, 13, 2]],
+            [44, "Ru", "Ruthenium", "transition", [2, 8, 18, 15, 1]],
+            [45, "Rh", "Rhodium", "transition", [2, 8, 18, 16, 1]],
+            [46, "Pd", "Palladium", "transition", [2, 8, 18, 18]],
+            [47, "Ag", "Silver", "transition", [2, 8, 18, 18, 1]],
+            [48, "Cd", "Cadmium", "transition", [2, 8, 18, 18, 2]],
+            [49, "In", "Indium", "post-transition", [2, 8, 18, 18, 3]],
+            [50, "Sn", "Tin", "post-transition", [2, 8, 18, 18, 4]],
+            [51, "Sb", "Antimony", "metalloid", [2, 8, 18, 18, 5]],
+            [52, "Te", "Tellurium", "metalloid", [2, 8, 18, 18, 6]],
+            [53, "I", "Iodine", "nonmetal", [2, 8, 18, 18, 7]],
+            [54, "Xe", "Xenon", "noble", [2, 8, 18, 18, 8]],
+            [55, "Cs", "Caesium", "alkali", [2, 8, 18, 18, 8, 1]],
+            [56, "Ba", "Barium", "alkaline", [2, 8, 18, 18, 8, 2]],
+            [57, "La", "Lanthanum", "lanthanide", [2, 8, 18, 18, 9, 2]],
+            [58, "Ce", "Cerium", "lanthanide", [2, 8, 18, 19, 9, 2]],
+            [59, "Pr", "Praseodymium", "lanthanide", [2, 8, 18, 21, 8, 2]],
+            [60, "Nd", "Neodymium", "lanthanide", [2, 8, 18, 22, 8, 2]],
+            [61, "Pm", "Promethium", "lanthanide", [2, 8, 18, 23, 8, 2]],
+            [62, "Sm", "Samarium", "lanthanide", [2, 8, 18, 24, 8, 2]],
+            [63, "Eu", "Europium", "lanthanide", [2, 8, 18, 25, 8, 2]],
+            [64, "Gd", "Gadolinium", "lanthanide", [2, 8, 18, 25, 9, 2]],
+            [65, "Tb", "Terbium", "lanthanide", [2, 8, 18, 27, 8, 2]],
+            [66, "Dy", "Dysprosium", "lanthanide", [2, 8, 18, 28, 8, 2]],
+            [67, "Ho", "Holmium", "lanthanide", [2, 8, 18, 29, 8, 2]],
+            [68, "Er", "Erbium", "lanthanide", [2, 8, 18, 30, 8, 2]],
+            [69, "Tm", "Thulium", "lanthanide", [2, 8, 18, 31, 8, 2]],
+            [70, "Yb", "Ytterbium", "lanthanide", [2, 8, 18, 32, 8, 2]],
+            [71, "Lu", "Lutetium", "lanthanide", [2, 8, 18, 32, 9, 2]],
+            [72, "Hf", "Hafnium", "transition", [2, 8, 18, 32, 10, 2]],
+            [73, "Ta", "Tantalum", "transition", [2, 8, 18, 32, 11, 2]],
+            [74, "W", "Tungsten", "transition", [2, 8, 18, 32, 12, 2]],
+            [75, "Re", "Rhenium", "transition", [2, 8, 18, 32, 13, 2]],
+            [76, "Os", "Osmium", "transition", [2, 8, 18, 32, 14, 2]],
+            [77, "Ir", "Iridium", "transition", [2, 8, 18, 32, 15, 2]],
+            [78, "Pt", "Platinum", "transition", [2, 8, 18, 32, 17, 1]],
+            [79, "Au", "Gold", "transition", [2, 8, 18, 32, 18, 1]],
+            [80, "Hg", "Mercury", "transition", [2, 8, 18, 32, 18, 2]],
+            [81, "Tl", "Thallium", "post-transition", [2, 8, 18, 32, 18, 3]],
+            [82, "Pb", "Lead", "post-transition", [2, 8, 18, 32, 18, 4]],
+            [83, "Bi", "Bismuth", "post-transition", [2, 8, 18, 32, 18, 5]],
+            [84, "Po", "Polonium", "post-transition", [2, 8, 18, 32, 18, 6]],
+            [85, "At", "Astatine", "metalloid", [2, 8, 18, 32, 18, 7]],
+            [86, "Rn", "Radon", "noble", [2, 8, 18, 32, 18, 8]],
+            [87, "Fr", "Francium", "alkali", [2, 8, 18, 32, 18, 8, 1]],
+            [88, "Ra", "Radium", "alkaline", [2, 8, 18, 32, 18, 8, 2]],
+            [89, "Ac", "Actinium", "actinide", [2, 8, 18, 32, 18, 9, 2]],
+            [90, "Th", "Thorium", "actinide", [2, 8, 18, 32, 18, 10, 2]],
+            [91, "Pa", "Protactinium", "actinide", [2, 8, 18, 32, 20, 9, 2]],
+            [92, "U", "Uranium", "actinide", [2, 8, 18, 32, 21, 9, 2]],
+            [93, "Np", "Neptunium", "actinide", [2, 8, 18, 32, 22, 9, 2]],
+            [94, "Pu", "Plutonium", "actinide", [2, 8, 18, 32, 24, 8, 2]],
+            [95, "Am", "Americium", "actinide", [2, 8, 18, 32, 25, 8, 2]],
+            [96, "Cm", "Curium", "actinide", [2, 8, 18, 32, 25, 9, 2]],
+            [97, "Bk", "Berkelium", "actinide", [2, 8, 18, 32, 27, 8, 2]],
+            [98, "Cf", "Californium", "actinide", [2, 8, 18, 32, 28, 8, 2]],
+            [99, "Es", "Einsteinium", "actinide", [2, 8, 18, 32, 29, 8, 2]],
+            [100, "Fm", "Fermium", "actinide", [2, 8, 18, 32, 30, 8, 2]],
+            [101, "Md", "Mendelevium", "actinide", [2, 8, 18, 32, 31, 8, 2]],
+            [102, "No", "Nobelium", "actinide", [2, 8, 18, 32, 32, 8, 2]],
+            [103, "Lr", "Lawrencium", "actinide", [2, 8, 18, 32, 32, 8, 3]],
+            [104, "Rf", "Rutherfordium", "transition", [2, 8, 18, 32, 32, 10, 2]],
+            [105, "Db", "Dubnium", "transition", [2, 8, 18, 32, 32, 11, 2]],
+            [106, "Sg", "Seaborgium", "transition", [2, 8, 18, 32, 32, 12, 2]],
+            [107, "Bh", "Bohrium", "transition", [2, 8, 18, 32, 32, 13, 2]],
+            [108, "Hs", "Hassium", "transition", [2, 8, 18, 32, 32, 14, 2]],
+            [109, "Mt", "Meitnerium", "unknown", [2, 8, 18, 32, 32, 15, 2]],
+            [110, "Ds", "Darmstadtium", "unknown", [2, 8, 18, 32, 32, 17, 1]],
+            [111, "Rg", "Roentgenium", "unknown", [2, 8, 18, 32, 32, 18, 1]],
+            [112, "Cn", "Copernicium", "transition", [2, 8, 18, 32, 32, 18, 2]],
+            [113, "Nh", "Nihonium", "unknown", [2, 8, 18, 32, 32, 18, 3]],
+            [114, "Fl", "Flerovium", "post-transition", [2, 8, 18, 32, 32, 18, 4]],
+            [115, "Mc", "Moscovium", "unknown", [2, 8, 18, 32, 32, 18, 5]],
+            [116, "Lv", "Livermorium", "unknown", [2, 8, 18, 32, 32, 18, 6]],
+            [117, "Ts", "Tennessine", "unknown", [2, 8, 18, 32, 32, 18, 7]],
+            [118, "Og", "Oganesson", "unknown", [2, 8, 18, 32, 32, 18, 8]]
+        ];
+
+        // Refined color themes per chemical family (default palette)
+        const CATEGORY_THEMES = {
+            "nonmetal":        { label: "Reactive Nonmetal",     primary: "#38bdf8", glow: "rgba(56, 189, 248, 0.55)",  core: "#e0f2fe" },
+            "noble":           { label: "Noble Gas",             primary: "#c084fc", glow: "rgba(192, 132, 252, 0.55)", core: "#f3e8ff" },
+            "alkali":          { label: "Alkali Metal",          primary: "#fb7185", glow: "rgba(251, 113, 133, 0.55)", core: "#ffe4e6" },
+            "alkaline":        { label: "Alkaline Earth Metal",  primary: "#fbbf24", glow: "rgba(251, 191, 36, 0.55)",  core: "#fef3c7" },
+            "metalloid":       { label: "Metalloid",             primary: "#2dd4bf", glow: "rgba(45, 212, 191, 0.55)",  core: "#ccfbf1" },
+            "post-transition": { label: "Post-Transition Metal", primary: "#60a5fa", glow: "rgba(96, 165, 250, 0.55)",  core: "#dbeafe" },
+            "transition":      { label: "Transition Metal",      primary: "#f472b6", glow: "rgba(244, 114, 182, 0.55)", core: "#fce7f3" },
+            "lanthanide":      { label: "Lanthanide",            primary: "#34d399", glow: "rgba(52, 211, 153, 0.55)",  core: "#d1fae5" },
+            "actinide":        { label: "Actinide",              primary: "#fb923c", glow: "rgba(251, 146, 60, 0.55)",  core: "#ffedd5" },
+            "unknown":         { label: "Superheavy / Unknown",  primary: "#94a3b8", glow: "rgba(148, 163, 184, 0.50)", core: "#f1f5f9" }
+        };
+
+        // Custom Resonance Color Overrides (Unlockable in Lab Shop)
+        const RESONANCE_PALETTES = {
+            "theme_default": {
+                primary: null, // Uses element's natural chemical category color
+                glow: null
+            },
+            "theme_aurora": {
+                primary: "#2dd4bf",
+                glow: "rgba(45, 212, 191, 0.55)"
+            },
+            "theme_solar": {
+                primary: "#fbbf24",
+                glow: "rgba(251, 191, 36, 0.55)"
+            },
+            "theme_abyssal": {
+                primary: "#818cf8",
+                glow: "rgba(129, 140, 248, 0.55)"
+            }
+        };
+
+        // Shop Catalog Definition
+        const SHOP_CATALOG = [
+            // Cute Science Screen Pets
+            {
+                id: "pet_pip",
+                type: "pet",
+                name: "Pip the Erlenmeyer Flask",
+                desc: "A cheerful bubbling chemistry flask that cheers you on.",
+                cost: 30,
+                quotes: ["Bubbling with focus! 🧪", "Reaction proceeding smoothly!", "Keep going, scientist!", "New element incoming! ✨"]
+            },
+            {
+                id: "pet_cat",
+                type: "pet",
+                name: "Schrödinger's Quantum Cat",
+                desc: "A semi-translucent cosmic kitty existing in a state of pure calm.",
+                cost: 60,
+                quotes: ["Purring in superposition... 🐾", "Both studying & relaxing~", "Quantum coherence achieved!", "Meow-gnificent focus! 🌌"]
+            },
+            {
+                id: "pet_tardigrade",
+                type: "pet",
+                name: "Tardigrade Buddy",
+                desc: "An indestructible chubby water bear floating peacefully in space.",
+                cost: 90,
+                quotes: ["Surviving exam season with ease!", "Slow and steady wins! 🐻", "Zero stress in the cosmos~", "You're unstoppable! 💫"]
+            },
+            {
+                id: "pet_bot",
+                type: "pet",
+                name: "Mini Tesla Plasma Bot",
+                desc: "A tiny hovering drone emitting gentle purple plasma sparks.",
+                cost: 120,
+                quotes: ["Bzzzt! Brainwaves synchronized ⚡", "Charging focus capacitors...", "High voltage concentration!", "Optimal study frequency! 🔋"]
+            },
+            // Visual & Meditative Upgrades
+            {
+                id: "upg_starfield",
+                type: "upgrade",
+                name: "Deep Space Starfield",
+                desc: "Adds gentle drifting cosmic dust and twinkling stars to the void.",
+                cost: 40
+            },
+            {
+                id: "upg_trails",
+                type: "upgrade",
+                name: "Quantum Wave Trails",
+                desc: "Extends luminous harmonic light ribbons behind orbiting electrons.",
+                cost: 50
+            },
+            {
+                id: "upg_chime",
+                type: "upgrade",
+                name: "Singing Bowl Discovery Chime",
+                desc: "Plays a soft meditative harmonic bell when a study minute completes.",
+                cost: 35
+            },
+            // Chromatic Resonance Themes
+            {
+                id: "theme_aurora",
+                type: "theme",
+                name: "Aurora Borealis Resonance",
+                desc: "Bathes your atom in serene northern-lights teal & emerald glow.",
+                cost: 45
+            },
+            {
+                id: "theme_solar",
+                type: "theme",
+                name: "Solar Corona Gold",
+                desc: "Warm golden-amber nuclear radiance for cozy late-night study.",
+                cost: 45
+            },
+            {
+                id: "theme_abyssal",
+                type: "theme",
+                name: "Bioluminescent Indigo",
+                desc: "Deep ocean twilight indigo aura for deep flow state.",
+                cost: 45
+            }
+        ];
+
+        // Cute SVG Artwork for Science Pets
+        const PET_SVGS = {
+            "pet_pip": `
+                <svg viewBox="0 0 80 80" class="w-full h-full">
+                    <defs>
+                        <linearGradient id="flaskLiquid" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.85"/>
+                            <stop offset="100%" stop-color="#818cf8" stop-opacity="0.95"/>
+                        </linearGradient>
+                    </defs>
+                    <!-- Flask Glass -->
+                    <path d="M32 14 H48 M35 14 V28 L18 60 Q15 66 22 66 H58 Q65 66 62 60 L45 28 V14" fill="rgba(255,255,255,0.08)" stroke="#bae6fd" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <!-- Glowing Potion -->
+                    <path d="M26 45 L19 59 Q17 64 23 64 H57 Q63 64 61 59 L54 45 Z" fill="url(#flaskLiquid)"/>
+                    <!-- Bubbles -->
+                    <circle cx="34" cy="38" r="2.2" fill="#7dd3fc" opacity="0.8"/>
+                    <circle cx="44" cy="33" r="1.6" fill="#c084fc" opacity="0.9"/>
+                    <circle cx="40" cy="22" r="1.5" fill="#bae6fd" opacity="0.7"/>
+                    <!-- Cute Eyes & Smile -->
+                    <circle cx="34" cy="54" r="2.3" fill="#0f172a"/>
+                    <circle cx="46" cy="54" r="2.3" fill="#0f172a"/>
+                    <circle cx="34.8" cy="53.2" r="0.8" fill="#ffffff"/>
+                    <circle cx="46.8" cy="53.2" r="0.8" fill="#ffffff"/>
+                    <path d="M38 56.5 Q40 59 42 56.5" fill="none" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/>
+                </svg>`,
+            "pet_cat": `
+                <svg viewBox="0 0 80 80" class="w-full h-full">
+                    <defs>
+                        <radialGradient id="catGlow" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#e879f9" stop-opacity="0.5"/>
+                            <stop offset="100%" stop-color="#818cf8" stop-opacity="0.15"/>
+                        </radialGradient>
+                    </defs>
+                    <circle cx="40" cy="44" r="26" fill="url(#catGlow)"/>
+                    <!-- Ears & Head -->
+                    <path d="M23 36 L21 19 L34 28 Q40 26 46 28 L59 19 L57 36 Q63 45 58 55 Q52 64 40 64 Q28 64 22 55 Q17 45 23 36 Z" fill="rgba(192,132,252,0.28)" stroke="#e9d5ff" stroke-width="2.2" stroke-linejoin="round"/>
+                    <!-- Cosmic Eyes -->
+                    <ellipse cx="33" cy="45" rx="2.6" ry="3.2" fill="#fef08a"/>
+                    <ellipse cx="47" cy="45" rx="2.6" ry="3.2" fill="#fef08a"/>
+                    <!-- Whiskers & Cute Mouth -->
+                    <path d="M37 50 Q40 53 40 50 Q40 53 43 50" fill="none" stroke="#f3e8ff" stroke-width="1.6" stroke-linecap="round"/>
+                    <path d="M16 45 H23 M17 49 H23 M57 45 H64 M57 49 H63" stroke="#d8b4fe" stroke-width="1.4" stroke-linecap="round" opacity="0.75"/>
+                </svg>`,
+            "pet_tardigrade": `
+                <svg viewBox="0 0 80 80" class="w-full h-full">
+                    <!-- Chubby Segmented Body -->
+                    <rect x="20" y="24" width="40" height="32" rx="16" fill="rgba(52,211,153,0.3)" stroke="#6ee7b7" stroke-width="2.4"/>
+                    <!-- Little Stubby Legs -->
+                    <path d="M27 55 V61 M36 56 V62 M44 56 V62 M53 55 V61" stroke="#6ee7b7" stroke-width="3" stroke-linecap="round"/>
+                    <!-- Segment Lines -->
+                    <path d="M33 25 Q31 40 33 55 M47 25 Q49 40 47 55" fill="none" stroke="#6ee7b7" stroke-width="1.4" opacity="0.5"/>
+                    <!-- Cute O-Mouth & Eyes -->
+                    <circle cx="25" cy="37" r="1.8" fill="#ecfdf5"/>
+                    <circle cx="31" cy="37" r="1.8" fill="#ecfdf5"/>
+                    <circle cx="28" cy="42" r="2.4" fill="none" stroke="#a7f3d0" stroke-width="1.8"/>
+                </svg>`,
+            "pet_bot": `
+                <svg viewBox="0 0 80 80" class="w-full h-full">
+                    <!-- Antenna -->
+                    <line x1="40" y1="14" x2="40" y2="24" stroke="#c4b5fd" stroke-width="2.2" stroke-linecap="round"/>
+                    <circle cx="40" cy="12" r="3.5" fill="#38bdf8"/>
+                    <!-- Hovering Dome Body -->
+                    <rect x="22" y="24" width="36" height="28" rx="12" fill="rgba(99,102,241,0.32)" stroke="#a5b4fc" stroke-width="2.4"/>
+                    <!-- Visor Screen -->
+                    <rect x="27" y="31" width="26" height="13" rx="6" fill="#090d16"/>
+                    <!-- Glowing Digital Eyes -->
+                    <circle cx="34" cy="37.5" r="2.2" fill="#38bdf8"/>
+                    <circle cx="46" cy="37.5" r="2.2" fill="#38bdf8"/>
+                    <!-- Thruster Ring -->
+                    <path d="M31 57 H49" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" opacity="0.8"/>
+                    <path d="M35 62 H45" stroke="#818cf8" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+                </svg>`
+        };
+
+        const STORAGE_KEY = "quantum_atom_study_timer_v1";
+
+        // Application State (Persistent + Runtime)
+        const state = {
+            currentIndex: 0,              // 0 = Hydrogen (Atomic Number 1)
+            isPlaying: true,
+            intervalMs: 60000,            // Strictly 60,000 ms (1 minute) by default
+            elapsedMs: 0,
+            lastFrameTime: null,
+            transitionPulse: 1,
+            tiltX: 0,
+            tiltY: 0,
+            targetTiltX: 0,
+            targetTiltY: 0,
+            // Persistent Study & Shop Economy
+            minutesSpent: 0,
+            quanta: 25,                   // Starter welcome Quanta
+            unlockedItems: ["theme_default"],
+            activePet: null,
+            activeTheme: "theme_default",
+            activeUpgrades: {
+                upg_starfield: false,
+                upg_trails: false,
+                upg_chime: false
+            }
+        };
+
+        // Background Starfield Particles (used when upg_starfield is enabled)
+        const stars = Array.from({ length: 85 }, () => ({
+            x: Math.random(),
+            y: Math.random(),
+            size: Math.random() * 1.6 + 0.4,
+            speed: Math.random() * 0.015 + 0.004,
+            phase: Math.random() * Math.PI * 2
+        }));
+
+        // =====================================================================
+        // WEB AUDIO API MEDITATIVE SOUNDSCAPE & SINGING BOWL SYNTHESIZER
+        // =====================================================================
+        const soundEngine = {
+            ctx: null,
+            isDronePlaying: false,
+            droneGain: null,
+            oscs: [],
+
+            init() {
+                if (!this.ctx) {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                }
+                if (this.ctx.state === "suspended") {
+                    this.ctx.resume();
+                }
+            },
+
+            toggleDrone() {
+                this.init();
+                if (this.isDronePlaying) {
+                    // Fade out smoothly
+                    const now = this.ctx.currentTime;
+                    if (this.droneGain) {
+                        this.droneGain.gain.setTargetAtTime(0.0001, now, 0.4);
+                    }
+                    setTimeout(() => {
+                        this.oscs.forEach(o => { try { o.stop(); } catch (e) {} });
+                        this.oscs = [];
+                    }, 900);
+                    this.isDronePlaying = false;
+                } else {
+                    // Warm harmonic fifth ambient pad (110Hz A2 + 164.81Hz E3 + 220Hz A3)
+                    const now = this.ctx.currentTime;
+                    const master = this.ctx.createGain();
+                    master.gain.setValueAtTime(0.0001, now);
+                    master.gain.exponentialRampToValueAtTime(0.045, now + 2.0);
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = "lowpass";
+                    filter.frequency.setValueAtTime(340, now);
+
+                    master.connect(filter);
+                    filter.connect(this.ctx.destination);
+                    this.droneGain = master;
+
+                    const freqs = [110, 164.81, 220];
+                    this.oscs = freqs.map((f, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        osc.type = idx === 0 ? "sine" : "triangle";
+                        osc.frequency.setValueAtTime(f, now);
+                        osc.connect(master);
+                        osc.start(now);
+                        return osc;
+                    });
+                    this.isDronePlaying = true;
+                }
+                return this.isDronePlaying;
+            },
+
+            playSingingBowl() {
+                try {
+                    this.init();
+                    const now = this.ctx.currentTime;
+                    const baseFreq = 528; // Solfeggio calm harmonic
+                    [1, 2.003].forEach((mult, idx) => {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = "sine";
+                        osc.frequency.setValueAtTime(baseFreq * mult, now);
+                        gain.gain.setValueAtTime(0.0001, now);
+                        gain.gain.exponentialRampToValueAtTime(idx === 0 ? 0.07 : 0.025, now + 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.2);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start(now);
+                        osc.stop(now + 3.3);
+                    });
+                } catch (e) {}
+            }
+        };
+
+        // =====================================================================
+        // PERSISTENCE (localStorage)
+        // =====================================================================
+        function saveProgress() {
+            try {
+                const payload = {
+                    currentIndex: state.currentIndex,
+                    minutesSpent: state.minutesSpent,
+                    quanta: state.quanta,
+                    unlockedItems: state.unlockedItems,
+                    activePet: state.activePet,
+                    activeTheme: state.activeTheme,
+                    activeUpgrades: state.activeUpgrades
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+            } catch (e) {}
+        }
+
+        function loadProgress() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const data = JSON.parse(raw);
+                if (typeof data.currentIndex === "number" && data.currentIndex >= 0 && data.currentIndex < ELEMENTS.length) {
+                    state.currentIndex = data.currentIndex;
+                }
+                if (typeof data.minutesSpent === "number" && data.minutesSpent >= 0) {
+                    state.minutesSpent = Math.floor(data.minutesSpent);
+                }
+                if (typeof data.quanta === "number" && data.quanta >= 0) {
+                    state.quanta = Math.floor(data.quanta);
+                }
+                if (Array.isArray(data.unlockedItems)) {
+                    state.unlockedItems = data.unlockedItems;
+                }
+                if (data.activePet) {
+                    state.activePet = data.activePet;
+                }
+                if (data.activeTheme && RESONANCE_PALETTES[data.activeTheme]) {
+                    state.activeTheme = data.activeTheme;
+                }
+                if (data.activeUpgrades && typeof data.activeUpgrades === "object") {
+                    state.activeUpgrades = { ...state.activeUpgrades, ...data.activeUpgrades };
+                }
+            } catch (e) {}
+        }
+
+        // DOM Elements
+        const canvas = document.getElementById("atomCanvas");
+        const ctx = canvas.getContext("2d");
+        const categoryLabel = document.getElementById("categoryLabel");
+        const statusDot = document.getElementById("statusDot");
+        const shellsDisplay = document.getElementById("shellsDisplay");
+        const hudQuanta = document.getElementById("hudQuanta");
+        const hudMinutes = document.getElementById("hudMinutes");
+        const prevBtn = document.getElementById("prevBtn");
+        const nextBtn = document.getElementById("nextBtn");
+        const playPauseBtn = document.getElementById("playPauseBtn");
+        const pauseIcon = document.getElementById("pauseIcon");
+        const playIcon = document.getElementById("playIcon");
+        const resetSessionBtn = document.getElementById("resetSessionBtn");
+        const audioToggleBtn = document.getElementById("audioToggleBtn");
+        const audioMutedIcon = document.getElementById("audioMutedIcon");
+        const audioOnIcon = document.getElementById("audioOnIcon");
+        const speedBtn = document.getElementById("speedBtn");
+        const speedLabel = document.getElementById("speedLabel");
+        const timerText = document.getElementById("timerText");
+        const controlsDock = document.getElementById("controlsDock");
+        const toastBanner = document.getElementById("toastBanner");
+
+        // Pet DOM Elements
+        const petContainer = document.getElementById("petContainer");
+        const petSprite = document.getElementById("petSprite");
+        const petNameTag = document.getElementById("petNameTag");
+        const petSpeechBubble = document.getElementById("petSpeechBubble");
+
+        // Shop & Edit Modal DOM Elements
+        const openShopBtn = document.getElementById("openShopBtn");
+        const closeShopBtn = document.getElementById("closeShopBtn");
+        const shopDrawer = document.getElementById("shopDrawer");
+        const shopBackdrop = document.getElementById("shopBackdrop");
+        const shopQuantaBalance = document.getElementById("shopQuantaBalance");
+        const shopPetsList = document.getElementById("shopPetsList");
+        const shopUpgradesList = document.getElementById("shopUpgradesList");
+        const shopThemesList = document.getElementById("shopThemesList");
+
+        const openEditBtn = document.getElementById("openEditBtn");
+        const closeEditBtn = document.getElementById("closeEditBtn");
+        const cancelEditBtn = document.getElementById("cancelEditBtn");
+        const saveEditBtn = document.getElementById("saveEditBtn");
+        const factoryResetBtn = document.getElementById("factoryResetBtn");
+        const editModal = document.getElementById("editModal");
+        const editMinutesInput = document.getElementById("editMinutesInput");
+        const editQuantaInput = document.getElementById("editQuantaInput");
+        const editElementSelect = document.getElementById("editElementSelect");
+        const syncElementWithMinutes = document.getElementById("syncElementWithMinutes");
+        const editUnlocksGrid = document.getElementById("editUnlocksGrid");
+
+        // Toast Helper
+        let toastTimeout = null;
+        function showToast(message) {
+            toastBanner.textContent = message;
+            toastBanner.classList.remove("opacity-0");
+            toastBanner.classList.add("opacity-100");
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toastBanner.classList.remove("opacity-100");
+                toastBanner.classList.add("opacity-0");
+            }, 2800);
+        }
+
+        // Pet Interaction & Rendering
+        let speechTimeout = null;
+        function triggerPetReaction(customQuote) {
+            if (!state.activePet) return;
+            const petItem = SHOP_CATALOG.find(i => i.id === state.activePet);
+            if (!petItem) return;
+
+            petSprite.classList.remove("pet-celebrate");
+            void petSprite.offsetWidth; // trigger reflow
+            petSprite.classList.add("pet-celebrate");
+
+            const quote = customQuote || petItem.quotes[Math.floor(Math.random() * petItem.quotes.length)];
+            petSpeechBubble.textContent = quote;
+            petSpeechBubble.classList.remove("opacity-0", "translate-y-1");
+            petSpeechBubble.classList.add("opacity-100", "translate-y-0");
+
+            clearTimeout(speechTimeout);
+            speechTimeout = setTimeout(() => {
+                petSpeechBubble.classList.remove("opacity-100", "translate-y-0");
+                petSpeechBubble.classList.add("opacity-0", "translate-y-1");
+            }, 3000);
+        }
+
+        petContainer.addEventListener("click", (e) => {
+            e.stopPropagation();
+            triggerPetReaction();
+        });
+
+        function syncPetStage() {
+            if (state.activePet && PET_SVGS[state.activePet]) {
+                const petItem = SHOP_CATALOG.find(i => i.id === state.activePet);
+                petSprite.innerHTML = PET_SVGS[state.activePet];
+                petNameTag.textContent = petItem ? petItem.name.split(" ")[0] : "Buddy";
+                petContainer.classList.remove("hidden");
+                petContainer.classList.add("flex");
+            } else {
+                petContainer.classList.add("hidden");
+                petContainer.classList.remove("flex");
+            }
+        }
+
+        // Handle High-DPI Responsive Canvas Resizing
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        function resizeCanvas() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            canvas.width = Math.floor(width * dpr);
+            canvas.height = Math.floor(height * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        window.addEventListener("resize", resizeCanvas);
+
+        // Helper to resolve active element colors (supports Chromatic Resonance Themes)
+        function getActiveThemeColors(categoryKey) {
+            const base = CATEGORY_THEMES[categoryKey];
+            const override = RESONANCE_PALETTES[state.activeTheme];
+            if (override && override.primary) {
+                return {
+                    label: base.label,
+                    primary: override.primary,
+                    glow: override.glow
+                };
+            }
+            return base;
+        }
+
+        // Update Top-Left HUD & Economy Counters
+        function syncElementUI() {
+            const el = ELEMENTS[state.currentIndex];
+            const theme = getActiveThemeColors(el[3]);
+            categoryLabel.textContent = theme.label;
+            statusDot.style.backgroundColor = theme.primary;
+            shellsDisplay.textContent = el[4].join(" · ");
+            hudQuanta.textContent = state.quanta.toLocaleString();
+            hudMinutes.textContent = state.minutesSpent.toLocaleString();
+            shopQuantaBalance.textContent = state.quanta.toLocaleString();
+            state.transitionPulse = 1.0;
+        }
+
+        function setElementIndex(newIndex) {
+            const total = ELEMENTS.length;
+            state.currentIndex = ((newIndex % total) + total) % total;
+            state.elapsedMs = 0;
+            syncElementUI();
+            saveProgress();
+        }
+
+        function nextElement() {
+            setElementIndex(state.currentIndex + 1);
+        }
+
+        function prevElement() {
+            setElementIndex(state.currentIndex - 1);
+        }
+
+        function togglePlayPause() {
+            state.isPlaying = !state.isPlaying;
+            if (state.isPlaying) {
+                pauseIcon.classList.remove("hidden");
+                playIcon.classList.add("hidden");
+                statusDot.classList.add("pulse-dot");
+            } else {
+                pauseIcon.classList.add("hidden");
+                playIcon.classList.remove("hidden");
+                statusDot.classList.remove("pulse-dot");
+            }
+        }
+
+        function toggleSpeed() {
+            const ratio = state.elapsedMs / state.intervalMs;
+            if (state.intervalMs === 60000) {
+                state.intervalMs = 2000;
+                speedLabel.textContent = "2s / preview";
+                speedLabel.classList.add("text-cyan-400");
+            } else {
+                state.intervalMs = 60000;
+                speedLabel.textContent = "1m / elem";
+                speedLabel.classList.remove("text-cyan-400");
+            }
+            state.elapsedMs = ratio * state.intervalMs;
+        }
+
+        // Format remaining time cleanly
+        function updateTimerDisplay() {
+            const remainingMs = Math.max(0, state.intervalMs - state.elapsedMs);
+            if (state.intervalMs >= 10000) {
+                const totalSec = Math.ceil(remainingMs / 1000);
+                const mins = Math.floor(totalSec / 60);
+                const secs = totalSec % 60;
+                timerText.textContent = `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+            } else {
+                const secs = (remainingMs / 1000).toFixed(1);
+                timerText.textContent = `${secs}s`;
+            }
+        }
+
+        // =====================================================================
+        // SHOP DRAWER LOGIC
+        // =====================================================================
+        function openShop() {
+            renderShopItems();
+            shopBackdrop.classList.remove("hidden");
+            requestAnimationFrame(() => {
+                shopBackdrop.classList.remove("opacity-0");
+                shopDrawer.classList.remove("translate-x-full");
+            });
+        }
+
+        function closeShop() {
+            shopBackdrop.classList.add("opacity-0");
+            shopDrawer.classList.add("translate-x-full");
+            setTimeout(() => {
+                shopBackdrop.classList.add("hidden");
+            }, 300);
+        }
+
+        function handleShopAction(itemId) {
+            const item = SHOP_CATALOG.find(i => i.id === itemId);
+            if (!item) return;
+
+            const isUnlocked = state.unlockedItems.includes(item.id);
+
+            // Purchase if locked
+            if (!isUnlocked) {
+                if (state.quanta < item.cost) {
+                    showToast(`Need ${item.cost - state.quanta} more Quanta ✦`);
+                    return;
+                }
+                state.quanta -= item.cost;
+                state.unlockedItems.push(item.id);
+                showToast(`Unlocked: ${item.name}!`);
+            }
+
+            // Equip / Toggle active state
+            if (item.type === "pet") {
+                state.activePet = state.activePet === item.id ? null : item.id;
+                syncPetStage();
+                if (state.activePet) triggerPetReaction("Ready to study together! ✨");
+            } else if (item.type === "upgrade") {
+                state.activeUpgrades[item.id] = !state.activeUpgrades[item.id];
+                if (item.id === "upg_chime" && state.activeUpgrades[item.id]) {
+                    soundEngine.playSingingBowl();
+                }
+            } else if (item.type === "theme") {
+                state.activeTheme = state.activeTheme === item.id ? "theme_default" : item.id;
+            }
+
+            syncElementUI();
+            saveProgress();
+            renderShopItems();
+        }
+
+        function renderShopItems() {
+            shopQuantaBalance.textContent = state.quanta.toLocaleString();
+            shopPetsList.innerHTML = "";
+            shopUpgradesList.innerHTML = "";
+            shopThemesList.innerHTML = "";
+
+            SHOP_CATALOG.forEach(item => {
+                const isUnlocked = state.unlockedItems.includes(item.id);
+                let isEquipped = false;
+                if (item.type === "pet") isEquipped = state.activePet === item.id;
+                if (item.type === "upgrade") isEquipped = !!state.activeUpgrades[item.id];
+                if (item.type === "theme") isEquipped = state.activeTheme === item.id;
+
+                const canAfford = state.quanta >= item.cost;
+
+                const card = document.createElement("div");
+                card.className = `p-3.5 rounded-2xl border transition flex items-center justify-between gap-3 ${
+                    isEquipped
+                        ? "bg-cyan-950/25 border-cyan-500/40"
+                        : "bg-slate-900/60 border-slate-800/80 hover:border-slate-700"
+                }`;
+
+                let btnText = `✦ ${item.cost}`;
+                let btnStyle = canAfford
+                    ? "bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold"
+                    : "bg-slate-800 text-slate-500 cursor-not-allowed";
+
+                if (isUnlocked) {
+                    btnText = isEquipped ? "Equipped" : "Equip";
+                    btnStyle = isEquipped
+                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-medium"
+                        : "bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium";
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 min-w-0">
+                        ${item.type === "pet" ? `<div class="w-11 h-11 shrink-0 rounded-xl bg-slate-950/80 border border-slate-800 p-1">${PET_SVGS[item.id]}</div>` : ""}
+                        <div class="min-w-0">
+                            <div class="text-xs font-semibold text-slate-100 truncate">${item.name}</div>
+                            <div class="text-[11px] text-slate-400 leading-snug mt-0.5">${item.desc}</div>
+                        </div>
+                    </div>
+                    <button data-shop-id="${item.id}" class="shrink-0 px-3 py-1.5 rounded-xl text-xs mono transition active:scale-95 ${btnStyle}">
+                        ${btnText}
+                    </button>
+                `;
+
+                card.querySelector("button").addEventListener("click", () => handleShopAction(item.id));
+
+                if (item.type === "pet") shopPetsList.appendChild(card);
+                else if (item.type === "upgrade") shopUpgradesList.appendChild(card);
+                else shopThemesList.appendChild(card);
+            });
+        }
+
+        // =====================================================================
+        // STUDENT EDIT & RECOVERY MODE MODAL LOGIC
+        // =====================================================================
+        function populateElementDropdown() {
+            editElementSelect.innerHTML = "";
+            ELEMENTS.forEach((el, idx) => {
+                const opt = document.createElement("option");
+                opt.value = idx;
+                opt.textContent = `${el[0]}. ${el[2]} (${el[1]})`;
+                editElementSelect.appendChild(opt);
+            });
+        }
+
+        function openEditModal() {
+            editMinutesInput.value = state.minutesSpent;
+            editQuantaInput.value = state.quanta;
+            editElementSelect.value = state.currentIndex;
+            syncElementWithMinutes.checked = false;
+
+            // Populate Quick Unlock checkboxes
+            editUnlocksGrid.innerHTML = "";
+            SHOP_CATALOG.forEach(item => {
+                const checked = state.unlockedItems.includes(item.id);
+                const label = document.createElement("label");
+                label.className = "flex items-center gap-2 p-2 rounded-xl bg-slate-900/70 border border-slate-800 text-xs text-slate-300 cursor-pointer hover:border-slate-700";
+                label.innerHTML = `
+                    <input type="checkbox" data-unlock-id="${item.id}" ${checked ? "checked" : ""} class="rounded bg-slate-950 border-slate-700 text-cyan-500 focus:ring-0">
+                    <span class="truncate">${item.name}</span>
+                `;
+                editUnlocksGrid.appendChild(label);
+            });
+
+            editModal.classList.remove("hidden");
+            editModal.classList.add("flex");
+        }
+
+        function closeEditModal() {
+            editModal.classList.add("hidden");
+            editModal.classList.remove("flex");
+        }
+
+        saveEditBtn.addEventListener("click", () => {
+            const newMins = Math.max(0, parseInt(editMinutesInput.value, 10) || 0);
+            const newQuanta = Math.max(0, parseInt(editQuantaInput.value, 10) || 0);
+            let newIndex = parseInt(editElementSelect.value, 10) || 0;
+
+            if (syncElementWithMinutes.checked) {
+                newIndex = newMins % ELEMENTS.length;
+            }
+
+            // Update unlocked items from checkboxes
+            const updatedUnlocks = ["theme_default"];
+            editUnlocksGrid.querySelectorAll("input[type='checkbox']").forEach(cb => {
+                if (cb.checked) updatedUnlocks.push(cb.dataset.unlockId);
+            });
+
+            state.minutesSpent = newMins;
+            state.quanta = newQuanta;
+            state.currentIndex = newIndex;
+            state.elapsedMs = 0;
+            state.unlockedItems = updatedUnlocks;
+
+            // Ensure unequipped if locked
+            if (state.activePet && !updatedUnlocks.includes(state.activePet)) {
+                state.activePet = null;
+            }
+            if (state.activeTheme !== "theme_default" && !updatedUnlocks.includes(state.activeTheme)) {
+                state.activeTheme = "theme_default";
+            }
+
+            syncPetStage();
+            syncElementUI();
+            saveProgress();
+            closeEditModal();
+            showToast("Study progress restored & saved ✓");
+        });
+
+        factoryResetBtn.addEventListener("click", () => {
+            state.currentIndex = 0;
+            state.minutesSpent = 0;
+            state.quanta = 25;
+            state.elapsedMs = 0;
+            state.unlockedItems = ["theme_default"];
+            state.activePet = null;
+            state.activeTheme = "theme_default";
+            state.activeUpgrades = { upg_starfield: false, upg_trails: false, upg_chime: false };
+            syncPetStage();
+            syncElementUI();
+            saveProgress();
+            closeEditModal();
+            showToast("All progress reset to Hydrogen (H)");
+        });
+
+        // Control Event Listeners
+        prevBtn.addEventListener("click", (e) => { e.stopPropagation(); prevElement(); });
+        nextBtn.addEventListener("click", (e) => { e.stopPropagation(); nextElement(); });
+        playPauseBtn.addEventListener("click", (e) => { e.stopPropagation(); togglePlayPause(); });
+        speedBtn.addEventListener("click", (e) => { e.stopPropagation(); toggleSpeed(); });
+
+        resetSessionBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            setElementIndex(0);
+            showToast("Session atom reset to Hydrogen (H)");
+        });
+
+        audioToggleBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const active = soundEngine.toggleDrone();
+            if (active) {
+                audioMutedIcon.classList.add("hidden");
+                audioOnIcon.classList.remove("hidden");
+                showToast("Ambient study drone active");
+            } else {
+                audioMutedIcon.classList.remove("hidden");
+                audioOnIcon.classList.add("hidden");
+            }
+        });
+
+        openShopBtn.addEventListener("click", openShop);
+        closeShopBtn.addEventListener("click", closeShop);
+        shopBackdrop.addEventListener("click", closeShop);
+
+        openEditBtn.addEventListener("click", openEditModal);
+        closeEditBtn.addEventListener("click", closeEditModal);
+        cancelEditBtn.addEventListener("click", closeEditModal);
+
+        // Keyboard shortcuts (disabled when typing in Edit Modal inputs)
+        window.addEventListener("keydown", (e) => {
+            if (!editModal.classList.contains("hidden")) {
+                if (e.key === "Escape") closeEditModal();
+                return;
+            }
+            if (!shopDrawer.classList.contains("translate-x-full")) {
+                if (e.key === "Escape") closeShop();
+                return;
+            }
+            if (e.code === "Space") {
+                e.preventDefault();
+                togglePlayPause();
+            } else if (e.code === "ArrowRight") {
+                nextElement();
+            } else if (e.code === "ArrowLeft") {
+                prevElement();
+            }
+        });
+
+        // Subtle parallax tilt on pointer movement
+        window.addEventListener("pointermove", (e) => {
+            const nx = (e.clientX / width) * 2 - 1;
+            const ny = (e.clientY / height) * 2 - 1;
+            state.targetTiltX = nx * 10;
+            state.targetTiltY = ny * 10;
+        });
+
+        window.addEventListener("pointerleave", () => {
+            state.targetTiltX = 0;
+            state.targetTiltY = 0;
+        });
+
+        // Tap anywhere on empty canvas to briefly reveal controls on mobile/touch
+        let hideControlsTimeout = null;
+        canvas.addEventListener("click", () => {
+            controlsDock.style.opacity = "0.95";
+            clearTimeout(hideControlsTimeout);
+            hideControlsTimeout = setTimeout(() => {
+                controlsDock.style.opacity = "";
+            }, 3000);
+        });
+
+        /**
+         * Main Render Loop: Draws the dark radial backdrop, optional starfield,
+         * concentric spinning Bohr shells, glowing orbiting electrons,
+         * 60-second countdown progress ring, and central nucleus.
+         */
+        function render(timestamp) {
+            if (!state.lastFrameTime) state.lastFrameTime = timestamp;
+            const dt = Math.min(timestamp - state.lastFrameTime, 100);
+            state.lastFrameTime = timestamp;
+
+            // Advance 60-second timer if playing
+            if (state.isPlaying) {
+                state.elapsedMs += dt;
+                if (state.elapsedMs >= state.intervalMs) {
+                    state.elapsedMs %= state.intervalMs;
+                    state.currentIndex = (state.currentIndex + 1) % ELEMENTS.length;
+
+                    // Award study minute & Quanta currency (only count full minutes or demo ticks cleanly)
+                    if (state.intervalMs >= 60000) {
+                        state.minutesSpent += 1;
+                        state.quanta += 15; // 10 base + 5 element discovery bonus
+                    } else {
+                        state.quanta += 2;  // Small preview reward
+                    }
+
+                    const discovered = ELEMENTS[state.currentIndex];
+                    syncElementUI();
+                    saveProgress();
+                    triggerPetReaction(`Discovered ${discovered[2]} (${discovered[1]})! ⚛️`);
+
+                    if (state.activeUpgrades.upg_chime) {
+                        soundEngine.playSingingBowl();
+                    }
+                }
+            }
+
+            updateTimerDisplay();
+
+            // Smoothly decay transition pulse & interpolate subtle pointer tilt
+            state.transitionPulse *= Math.pow(0.04, dt / 1000);
+            state.tiltX += (state.targetTiltX - state.tiltX) * 0.08;
+            state.tiltY += (state.targetTiltY - state.tiltY) * 0.08;
+
+            const currentElement = ELEMENTS[state.currentIndex];
+            const [atomicNumber, symbol, name, category, shells] = currentElement;
+            const theme = getActiveThemeColors(category);
+
+            // Clear screen with deep obsidian black
+            ctx.fillStyle = "#030407";
+            ctx.fillRect(0, 0, width, height);
+
+            const cx = width / 2 + state.tiltX * 0.4;
+            const cy = height / 2 + state.tiltY * 0.4;
+            const minDim = Math.min(width, height);
+            const timeSec = timestamp * 0.001;
+
+            // Optional Upgrade: Deep Space Starfield
+            if (state.activeUpgrades.upg_starfield) {
+                for (let i = 0; i < stars.length; i++) {
+                    const st = stars[i];
+                    const sx = ((st.x + timeSec * st.speed * 0.15) % 1) * width;
+                    const sy = st.y * height;
+                    const alpha = 0.25 + 0.45 * Math.sin(timeSec * 1.4 + st.phase);
+                    ctx.fillStyle = `rgba(226, 232, 240, ${alpha.toFixed(3)})`;
+                    ctx.beginPath();
+                    ctx.arc(sx, sy, st.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Ambient radial nebula glow behind the atom
+            const ambientRadius = minDim * 0.46;
+            const bgGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, ambientRadius);
+            bgGrad.addColorStop(0, theme.glow.replace("0.55", "0.15"));
+            bgGrad.addColorStop(0.55, "rgba(15, 23, 42, 0.05)");
+            bgGrad.addColorStop(1, "rgba(3, 4, 7, 0)");
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Responsive sizing calculations so up to 7 shells fit cleanly on mobile & desktop
+            const numShells = shells.length;
+            const maxAtomRadius = minDim * 0.41;
+            const nucleusRadius = Math.max(34, Math.min(54, minDim * 0.072));
+            const innerClearance = nucleusRadius + Math.max(20, minDim * 0.032);
+            const availableSpan = Math.max(40, maxAtomRadius - innerClearance);
+            const shellStep = numShells > 1 ? availableSpan / (numShells - 0.55) : availableSpan * 0.52;
+
+            // Draw each concentric electron shell & its orbiting electrons
+            for (let s = 0; s < numShells; s++) {
+                const electronCount = shells[s];
+                const radius = innerClearance + s * shellStep;
+
+                const direction = s % 2 === 0 ? 1 : -1;
+                const baseSpeed = (0.72 / Math.pow(s + 1, 0.62)) * direction;
+                const shellAngleOffset = timeSec * baseSpeed + s * 0.85;
+
+                const tiltFactor = 1 - 0.035 * Math.sin(timeSec * 0.7 + s * 1.1);
+                const rx = radius + state.transitionPulse * 6;
+                const ry = radius * tiltFactor + state.transitionPulse * 6;
+
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(Math.sin(timeSec * 0.25 + s) * 0.08);
+
+                // 1. Orbital Ring Track
+                ctx.beginPath();
+                ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(148, 163, 184, 0.14)";
+                ctx.lineWidth = 1.15;
+                ctx.stroke();
+
+                // 2. Subtle Glowing Arc Highlight on the Ring
+                ctx.beginPath();
+                ctx.ellipse(0, 0, rx, ry, 0, shellAngleOffset, shellAngleOffset + Math.PI * 0.65);
+                ctx.strokeStyle = theme.glow.replace("0.55", "0.28");
+                ctx.lineWidth = 1.6;
+                ctx.stroke();
+
+                // 3. Orbiting Electrons evenly spaced around this shell
+                const electronSize = Math.max(2.6, Math.min(4.2, minDim * 0.0052));
+                const trailMult = state.activeUpgrades.upg_trails ? 0.68 : 0.26;
+
+                for (let e = 0; e < electronCount; e++) {
+                    const theta = shellAngleOffset + (e * Math.PI * 2) / electronCount;
+                    const ex = Math.cos(theta) * rx;
+                    const ey = Math.sin(theta) * ry;
+
+                    // Electron motion trail
+                    const trailLength = trailMult * direction;
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        0, 0, rx, ry, 0,
+                        theta - trailLength,
+                        theta,
+                        direction < 0
+                    );
+                    ctx.strokeStyle = theme.glow.replace("0.55", state.activeUpgrades.upg_trails ? "0.65" : "0.45");
+                    ctx.lineWidth = electronSize * (state.activeUpgrades.upg_trails ? 1.15 : 0.85);
+                    ctx.lineCap = "round";
+                    ctx.stroke();
+
+                    // Outer electron glow halo
+                    const eGlow = ctx.createRadialGradient(ex, ey, 0, ex, ey, electronSize * 3.4);
+                    eGlow.addColorStop(0, theme.primary);
+                    eGlow.addColorStop(0.4, theme.glow);
+                    eGlow.addColorStop(1, "rgba(0, 0, 0, 0)");
+                    ctx.fillStyle = eGlow;
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, electronSize * 3.4, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Crisp bright electron core
+                    ctx.fillStyle = "#ffffff";
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, electronSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.restore();
+            }
+
+            // Central Nucleus Group
+            ctx.save();
+            ctx.translate(cx - state.tiltX * 0.25, cy - state.tiltY * 0.25);
+
+            const pulseScale = 1 + Math.sin(timeSec * 2.4) * 0.025 + state.transitionPulse * 0.14;
+            const nRad = nucleusRadius * pulseScale;
+
+            // Outer Nucleus Aura
+            const auraGrad = ctx.createRadialGradient(0, 0, nRad * 0.6, 0, 0, nRad * 2.1);
+            auraGrad.addColorStop(0, theme.glow);
+            auraGrad.addColorStop(1, "rgba(3, 4, 7, 0)");
+            ctx.fillStyle = auraGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, nRad * 2.1, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Nucleus Sphere Body
+            const coreGrad = ctx.createRadialGradient(-nRad * 0.28, -nRad * 0.28, nRad * 0.1, 0, 0, nRad);
+            coreGrad.addColorStop(0, "#1e293b");
+            coreGrad.addColorStop(0.75, "#090d16");
+            coreGrad.addColorStop(1, "#030407");
+            ctx.fillStyle = coreGrad;
+            ctx.beginPath();
+            ctx.arc(0, 0, nRad, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Subtle Nucleus Rim
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.14)";
+            ctx.lineWidth = 1.25;
+            ctx.stroke();
+
+            // 60-Second Countdown Progress Ring around Nucleus
+            const progress = Math.min(1, state.elapsedMs / state.intervalMs);
+            const startAngle = -Math.PI / 2;
+            const endAngle = startAngle + progress * Math.PI * 2;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, nRad + 4.5, 0, Math.PI * 2);
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.06)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            if (progress > 0.002) {
+                ctx.beginPath();
+                ctx.arc(0, 0, nRad + 4.5, startAngle, endAngle);
+                ctx.strokeStyle = theme.primary;
+                ctx.lineWidth = 2.2;
+                ctx.lineCap = "round";
+                ctx.stroke();
+            }
+
+            // Element Typography inside the Glowing Nucleus
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            const numFontSize = Math.max(10, Math.round(nRad * 0.24));
+            ctx.font = `500 ${numFontSize}px "JetBrains Mono", monospace`;
+            ctx.fillStyle = theme.primary;
+            ctx.fillText(String(atomicNumber), 0, -nRad * 0.48);
+
+            const symFontSize = Math.max(18, Math.round(nRad * 0.56));
+            ctx.font = `700 ${symFontSize}px "Inter", sans-serif`;
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowColor = theme.glow;
+            ctx.shadowBlur = 12;
+            ctx.fillText(symbol, 0, 2);
+            ctx.shadowBlur = 0;
+
+            const nameFontSize = Math.max(8, Math.round(nRad * 0.19));
+            ctx.font = `500 ${nameFontSize}px "Inter", sans-serif`;
+            ctx.fillStyle = "rgba(226, 232, 240, 0.82)";
+            ctx.fillText(name, 0, nRad * 0.50);
+
+            ctx.restore();
+
+            requestAnimationFrame(render);
+        }
+
+        // Initialize on Window Load
+        window.onload = function () {
+            loadProgress();
+            populateElementDropdown();
+            resizeCanvas();
+            syncPetStage();
+            syncElementUI();
+            requestAnimationFrame(render);
+        };
+    </script>
+</body>
+</html>
